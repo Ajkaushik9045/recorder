@@ -13,15 +13,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           appBarTheme: AppBarTheme(
             iconTheme: IconThemeData(color: Colors.white),
           ),
         ),
-        home: const home(),
+        home: Home(),
         routes: {
-          '/recording': (context) => recording(),
+          '/recording': (context) => Recording(),
         });
   }
 }
