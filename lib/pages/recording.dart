@@ -1,10 +1,16 @@
+// recording.dart
+
 import 'dart:async';
 import 'dart:io';
+
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:recoder/pages/database_helper.dart'; // Correct the import statement for DatabaseHelper class
 
 class Recording extends StatefulWidget {
   const Recording({Key? key}) : super(key: key);
@@ -85,25 +91,60 @@ class _RecordingState extends State<Recording> {
     setState(() {
       isRecording = false;
       audioPath = path!;
+      print('Audio path: $audioPath');
     });
   }
 
-  Future<void> saveRecording() async {
-    // Check if audioPath is not empty
+  Future<void> saveRecording(BuildContext context) async {
     if (audioPath.isNotEmpty) {
-      // Get the directory for saving recordings
-      Directory appDirectory = await getApplicationDocumentsDirectory();
-      // Get a unique filename for the recording
-      String currentTime = DateTime.now().millisecondsSinceEpoch.toString();
-      String newPath = '${appDirectory.path}/$currentTime.wav';
-      // Move the recorded audio file to the new path
-      await File(audioPath).copy(newPath);
-      // Display a message indicating the save was successful
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Recording saved successfully')),
+      String? recordingName = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          TextEditingController controller = TextEditingController();
+          return AlertDialog(
+            title: Text('Save Recording'),
+            content: TextField(
+              controller: controller,
+              decoration: InputDecoration(hintText: 'Enter Recording Name'),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(controller.text);
+                },
+                child: Text('Save'),
+              ),
+            ],
+          );
+        },
       );
+
+      if (recordingName != null && recordingName.isNotEmpty) {
+        // Choose the directory where you want to save the recording
+        Directory directory = await getApplicationDocumentsDirectory();
+
+        // Create the directory if it doesn't exist
+        String directoryPath = '${directory.path}/recordings';
+        Directory(directoryPath).createSync(recursive: true);
+
+        // Construct the path for the new recording
+        String newPath = '$directoryPath/$recordingName.wav';
+
+        // Move the recorded file to the new location
+        await File(audioPath).copy(newPath);
+
+        // Save recording details to the database
+        await DatabaseHelper().insertRecording(newPath, timeDuration);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Recording saved successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please enter a valid recording name')),
+        );
+      }
     } else {
-      // If audioPath is empty, display an error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No recording to save')),
       );
@@ -154,7 +195,10 @@ class _RecordingState extends State<Recording> {
                   ),
                   SizedBox(width: 20),
                   ElevatedButton(
-                    onPressed: saveRecording,
+                    onPressed: () async {
+                      await stopRecording(); // Stop the recording first
+                      saveRecording(context); // Then save the recording
+                    },
                     child: Icon(Icons.save),
                   ),
                 ],
