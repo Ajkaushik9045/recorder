@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:recoder/pages/recording.dart'; // Correct the import statement for recording.dart
-import 'package:recoder/pages/database_helper.dart'; // Correct the import statement for DatabaseHelper class
+import 'package:path/path.dart' as path; // Import path package for basename function
+import 'package:recoder/pages/recording.dart';
+import 'package:recoder/pages/database_helper.dart';
+import 'dart:io';
+import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -10,21 +14,40 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  List<String> recordedFiles = [];
+  late List<RecordingInfo> recordings = [];
+  late Timer timer;
 
   @override
   void initState() {
     super.initState();
     loadRecordedFiles();
+    // Start a timer to check for updates every 5 seconds
+    timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      loadRecordedFiles();
+    });
   }
 
- void loadRecordedFiles() async {
-  List<Map<String, dynamic>> recordings = await DatabaseHelper().getRecordings();
-  setState(() {
-    recordedFiles = recordings.map((record) => record['path'] as String).toList();
-  });
-}
+  @override
+  void dispose() {
+    timer.cancel(); // Cancel the timer when the widget is disposed
+    super.dispose();
+  }
 
+  void loadRecordedFiles() async {
+    List<RecordingInfo> loadedRecordings =
+        await DatabaseHelper().getRecordings();
+    setState(() {
+      recordings = loadedRecordings;
+    });
+  }
+
+  void deleteRecording(int index) async {
+    await File(recordings[index].path).delete();
+    await DatabaseHelper().deleteRecording(recordings[index].id);
+    setState(() {
+      recordings.removeAt(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,19 +66,17 @@ class _HomeState extends State<Home> {
         backgroundColor: Colors.black,
       ),
       body: ListView.builder(
-        itemCount: recordedFiles.length,
+        itemCount: recordings.length,
         itemBuilder: (context, index) {
-          return Container(
-            margin: EdgeInsets.only(left: 20, right: 90, bottom: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey,
+          return ListTile(
+            title: Text(path.basename(recordings[index].path), style: TextStyle(color: Colors.white),), // Use basename function to display only the filename
+            leading: IconButton(
+              icon: Icon(Icons.play_arrow, color: Colors.white),
+              onPressed: () {},
             ),
-            child: ListTile(
-              title: Text(recordedFiles[index]),
-              onTap: () {
-                // Implement navigation to the playback page or file details page
-              },
+            trailing: IconButton(
+              icon: Icon(Icons.delete, color: Colors.white),
+              onPressed: () => deleteRecording(index),
             ),
           );
         },
@@ -72,9 +93,9 @@ class _HomeState extends State<Home> {
                     builder: (context) => Recording(),
                   ),
                 ).then((value) {
-                  if (value != null && value is List<String>) {
+                  if (value != null && value is RecordingInfo) {
                     setState(() {
-                      recordedFiles = List.from(value);
+                      recordings.add(value);
                     });
                   }
                 });
@@ -88,4 +109,10 @@ class _HomeState extends State<Home> {
       ),
     );
   }
+}
+
+void main() {
+  runApp(MaterialApp(
+    home: Home(),
+  ));
 }

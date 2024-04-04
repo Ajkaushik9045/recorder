@@ -1,8 +1,17 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+
+class RecordingInfo {
+  final int id;
+  final String path;
+  final int duration;
+
+  RecordingInfo({
+    required this.id,
+    required this.path,
+    required this.duration,
+  });
+}
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -20,16 +29,12 @@ class DatabaseHelper {
   }
 
   Future<Database> initDatabase() async {
-    // Get a location using getDatabasesPath
-String documentsDirectory = await getDatabasesPath();
-String path = join(documentsDirectory, 'recordings.db');
-
-    // Open/create the database at a given path
+    String documentsDirectory = await getDatabasesPath();
+    String path = join(documentsDirectory, 'recordings.db');
     return await openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   void _onCreate(Database db, int version) async {
-    // Create the recordings table
     await db.execute('''
       CREATE TABLE recordings(
         id INTEGER PRIMARY KEY,
@@ -48,8 +53,24 @@ String path = join(documentsDirectory, 'recordings.db');
     );
   }
 
-  Future<List<Map<String, dynamic>>> getRecordings() async {
+  Future<List<RecordingInfo>> getRecordings() async {
     final db = await database;
-    return await db.query('recordings');
+    final List<Map<String, dynamic>> maps = await db.query('recordings');
+    return List.generate(maps.length, (i) {
+      return RecordingInfo(
+        id: maps[i]['id'],
+        path: maps[i]['path'],
+        duration: maps[i]['duration'],
+      );
+    });
+  }
+
+  Future<void> deleteRecording(int id) async {
+    final db = await database;
+    await db.delete(
+      'recordings',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }
