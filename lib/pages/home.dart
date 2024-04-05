@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path; // Import path package for basename function
+import 'package:path/path.dart' as path;
 import 'package:recoder/pages/recording.dart';
 import 'package:recoder/pages/database_helper.dart';
 import 'dart:io';
@@ -16,6 +16,9 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   late List<RecordingInfo> recordings = [];
   late Timer timer;
+  late AudioPlayer audioPlayer = AudioPlayer();
+  int? currentPlayingIndex;
+  late bool isPlaying = false;
 
   @override
   void initState() {
@@ -25,11 +28,20 @@ class _HomeState extends State<Home> {
     timer = Timer.periodic(Duration(seconds: 1), (timer) {
       loadRecordedFiles();
     });
+    audioPlayer.onPlayerStateChanged.listen((event) {
+      if (event == PlayerState.completed) {
+        setState(() {
+          isPlaying = false;
+          currentPlayingIndex = null;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     timer.cancel(); // Cancel the timer when the widget is disposed
+    audioPlayer.dispose(); // Dispose the audio player
     super.dispose();
   }
 
@@ -47,6 +59,22 @@ class _HomeState extends State<Home> {
     setState(() {
       recordings.removeAt(index);
     });
+  }
+
+  Future<void> playRecording(int index, String path) async {
+    Source urlSource = UrlSource(path);
+    if (isPlaying && currentPlayingIndex == index) {
+      await audioPlayer.pause();
+      setState(() {
+        isPlaying = false;
+      });
+    } else {
+      await audioPlayer.play(urlSource);
+      setState(() {
+        isPlaying = true;
+        currentPlayingIndex = index;
+      });
+    }
   }
 
   @override
@@ -69,10 +97,18 @@ class _HomeState extends State<Home> {
         itemCount: recordings.length,
         itemBuilder: (context, index) {
           return ListTile(
-            title: Text(path.basename(recordings[index].path), style: TextStyle(color: Colors.white),), // Use basename function to display only the filename
+            title: Text(
+              path.basename(recordings[index].path),
+              style: TextStyle(color: Colors.white),
+            ),
             leading: IconButton(
-              icon: Icon(Icons.play_arrow, color: Colors.white),
-              onPressed: () {},
+              icon: Icon(
+                currentPlayingIndex == index && isPlaying
+                    ? Icons.pause
+                    : Icons.play_arrow,
+                color: Colors.white,
+              ),
+              onPressed: () => playRecording(index, recordings[index].path),
             ),
             trailing: IconButton(
               icon: Icon(Icons.delete, color: Colors.white),

@@ -19,8 +19,6 @@ class Recording extends StatefulWidget {
   State<Recording> createState() => _RecordingState();
 }
 
-
-
 class _RecordingState extends State<Recording> {
   late Record audiorecord;
   late AudioPlayer audioPlayer;
@@ -137,6 +135,10 @@ class _RecordingState extends State<Recording> {
 
         // Save recording details to the database
         await DatabaseHelper().insertRecording(newPath, timeDuration);
+
+        setState(() {
+          timeDuration = 0;
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Recording saved successfully')),
