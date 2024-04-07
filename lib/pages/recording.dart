@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:battery/battery.dart';
 
-
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -230,8 +229,15 @@ class _RecordingState extends State<Recording> {
                   SizedBox(width: 20),
                   ElevatedButton(
                     onPressed: () async {
-                      await stopRecording(); // Stop the recording first
-                      saveRecording(context); // Then save the recording
+                      if (isRecording) {
+                        // Check if recording is in progress
+                        await stopRecording(); // Stop the recording first
+                        saveRecording(context); // Then save the recording
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('No recording in progress')),
+                        );
+                      }
                     },
                     child: Icon(Icons.save),
                   ),
