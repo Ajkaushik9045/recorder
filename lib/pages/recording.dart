@@ -2,6 +2,8 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:battery/battery.dart';
+
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -27,11 +29,13 @@ class _RecordingState extends State<Recording> {
   String audioPath = "";
   int timeDuration = 0;
   late Timer timer;
+  final Battery _battery = Battery();
 
   @override
   void initState() {
     audioPlayer = AudioPlayer();
     audiorecord = Record();
+    startBatteryMonitoring();
     super.initState();
   }
 
@@ -40,7 +44,27 @@ class _RecordingState extends State<Recording> {
     audioPlayer.dispose();
     audiorecord.dispose();
     timer.cancel();
+
     super.dispose();
+  }
+
+  void startBatteryMonitoring() {
+    _battery.onBatteryStateChanged.listen((BatteryState state) {
+      if (state == BatteryState.charging || state == BatteryState.full) {
+        if (isPaused) {
+          resumeRecording();
+        }
+      } else if (state == BatteryState.discharging) {
+        _battery.batteryLevel.then((level) {
+          if (level != null && level <= 5) {
+            // Pause the recording if the battery level is <= 5%
+            if (isRecording && !isPaused) {
+              pauseRecording();
+            }
+          }
+        });
+      }
+    });
   }
 
   void startTimer() {
@@ -120,15 +144,21 @@ class _RecordingState extends State<Recording> {
       );
 
       if (recordingName != null && recordingName.isNotEmpty) {
-        // Choose the directory where you want to save the recording
         Directory directory = await getApplicationDocumentsDirectory();
-
-        // Create the directory if it doesn't exist
         String directoryPath = '${directory.path}/recordings';
         Directory(directoryPath).createSync(recursive: true);
 
-        // Construct the path for the new recording
         String newPath = '$directoryPath/$recordingName.wav';
+
+        // Check if file with the same name already exists
+        if (File(newPath).existsSync()) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'A file with this name already exists. Please choose a different name.')),
+          );
+          return; // Exit the method without saving
+        }
 
         // Move the recorded file to the new location
         await File(audioPath).copy(newPath);
