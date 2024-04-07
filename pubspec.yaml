@@ -39,8 +39,8 @@ dependencies:
   record: ^4.4.4
   audioplayers: ^6.0.0
   flutter_sound: ^9.4.6
-  telephony: ^0.2.0
-  phone_state: ^1.0.4
+  # telephony: ^0.2.0
+  # phone_state: ^1.0.4
   battery: ^2.0.0
 
 dev_dependencies:
